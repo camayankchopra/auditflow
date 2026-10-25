@@ -141,6 +141,7 @@ if(fm){
         <h3 style="margin:0 0 4px;font-size:22px">Workpaper ready</h3><div style="color:var(--mu);font-size:13px">${nm}</div>
         <div class="sum">${sum.map(x=>`<div><b>${x[1]}</b>${x[0]}</div>`).join('')}</div>
         <a class="btn lg" style="width:100%;justify-content:center" href="${url}" download="${nm}" id="dl">Download Excel</a>
+        <div style="margin-top:12px;font-size:12.5px;color:var(--mu);line-height:1.5">Tip: open the file in Excel and click <b>Enable Editing</b> - figures calculate on opening. Preview panes and Protected View show blanks or nil until then.</div>
         <div style="margin-top:14px"><a href="#" id="cl" style="color:var(--mu);font-size:13px">Close and edit inputs</a></div>`;
       confetti();$('#cl').onclick=e=>{e.preventDefault();ov.classList.remove('show')};
       const a=document.createElement('a');a.href=url;a.download=nm;document.body.appendChild(a);a.click();a.remove();
