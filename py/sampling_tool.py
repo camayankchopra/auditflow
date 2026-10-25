@@ -632,6 +632,7 @@ def build(rows, P, out_path):
     wsPar.sheet_properties.tabColor = "A6A6A6"
     for w_ in (wsR, wsK, wsS, wsPop):
         landscape(w_)
+    wb.calculation.fullCalcOnLoad = True
     wb.save(out_path)
     res["n_key"] = sum(1 for c in cats if c.startswith("Key"))
     res["n_top"] = sum(1 for c in cats if c.startswith("Top"))

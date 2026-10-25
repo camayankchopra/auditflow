@@ -820,6 +820,7 @@ def build(rows, P, out_path, notes=None):
         w_.sheet_properties.tabColor = "8EA9DB"
     wsR.sheet_properties.tabColor = "A6A6A6"
     wsP.sheet_properties.tabColor = "A6A6A6"
+    wb.calculation.fullCalcOnLoad = True
     wb.save(out_path)
     return dict(n_assets=N, n_classes=NC, n_add=len(adds), n_disp=len(disps), exceptions=ana["exceptions"],
                 dep_reg=ana["reg_dep"], dep_recalc=ana["recalc"], dep_flags=ana["dep_flags"], rel_flags=ana["rel_flags"],

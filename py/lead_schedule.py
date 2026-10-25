@@ -807,6 +807,7 @@ def build(tb, meta, out_path):
         ws_.page_setup.fitToWidth = 1
         ws_.page_setup.fitToHeight = 0
         ws_.sheet_properties.pageSetUpPr.fitToPage = True
+    wb.calculation.fullCalcOnLoad = True
     wb.save(out_path)
     return dict(unmapped=unmapped, n=n, tabs=sum(len(g[4]) for g in present_groups))
 
