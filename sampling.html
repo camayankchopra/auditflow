@@ -1,0 +1,94 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Audit Sampling - AuditFlow</title>
+<link rel="stylesheet" href="assets/app.css"></head><body>
+<div class="bg"></div><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><canvas id="net"></canvas>
+<div class="trialbar" style="background:linear-gradient(90deg,#059669,#0ea5e9)">PRIVATE BY DESIGN - everything runs in your browser. Your files are never uploaded or stored.</div>
+<header class="nav"><div class="in"><a class="logo" href="index.html"><svg width="30" height="30" viewBox="0 0 32 32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6c8cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M8 17l5 5 11-12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> AuditFlow</a>
+ <nav class="links"><a href="index.html#tools">Tools</a><a href="index.html#why">Why firms choose us</a><a href="index.html#how">How it works</a>
+ <a class="btn sm" href="mailto:hello@yourfirm.com?subject=Demo%20request">Request a demo</a></nav></div></header>
+
+<div class="wrap"><div class="phead">
+ <div class="crumb"><a href="index.html">All tools</a> / Audit Sampling</div>
+ <h1 class="rv">Audit <span class="grad">Sampling</span></h1>
+ <p class="lead rv d1">Risk-based sample sizing, key items, residual population and an evaluation tab - MUS, random, systematic or haphazard.
+  <a href="templates/Population_Template.xlsx" download>Download the population template</a>.</p></div>
+ <div class="layout">
+ <form data-ajax data-tool="sampling" data-steps='["Reading the population","Applying risk parameters","Identifying key items and residual","Selecting the sample","Building formulas and evaluation tab"]'
+       method="post" action="/sampling/generate" enctype="multipart/form-data">
+  <div class="err" id="err">None</div>
+  
+  <div class="panel rv"><h3><span class="sn">1</span> Population</h3>
+   <p class="sub">Item ID, Description, Book value (debit +, credit -). Excel or CSV.</p>
+   <label class="drop"><input type="file" name="pop" accept=".xlsx,.xlsm,.csv" required>
+    <div class="up"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></div><b>Drop your population listing here</b><span>or click to browse - .xlsx or .csv</span></label>
+   <div class="two"><div><label class="f">Client name</label><input name="client" value="" required></div>
+   <div><label class="f">Period end</label><input type="date" name="period_end" value="" required></div></div>
+   <div class="two"><div><label class="f">Audit area / account</label><input name="area" value="" placeholder="Trade receivables" required></div>
+   <div><label class="f">Assertion tested</label><select name="assertion"><option selected>Existence</option><option >Completeness</option><option >Valuation / accuracy</option><option >Rights &amp; obligations</option><option >Occurrence</option><option >Cut-off</option><option >Presentation &amp; disclosure</option></select></div></div>
+   <label class="f">Objective of the test</label><input name="objective" value="" placeholder="e.g. Confirm existence of year-end receivables">
+   <label class="f">Prepared by (initials)</label><input name="prepared_by" value=""></div>
+
+  <div class="panel rv"><h3><span class="sn">2</span> Materiality</h3>
+   <div class="two"><div><label class="f">Overall materiality</label><input type="number" step="any" name="om" value="" required></div>
+   <div><label class="f">Performance materiality %</label><input type="number" step="any" name="pm_pct" value="75"></div></div>
+   <div class="two"><div><label class="f">Tolerable misstatement (optional)</label><input type="number" step="any" name="tm" value=""><div class="hint">Blank = performance materiality</div></div>
+   <div><label class="f">Clearly trivial %</label><input type="number" step="any" name="trivial_pct" value="5"></div></div></div>
+
+  <div class="panel rv"><h3><span class="sn">3</span> Risk and assurance</h3>
+   <label class="f">Inherent risk</label>
+<div class="seg" role="radiogroup"><label><input type="radio" name="ir" value="Low" ><span>Low</span></label><label><input type="radio" name="ir" value="Moderate" checked><span>Moderate</span></label><label><input type="radio" name="ir" value="High" ><span>High</span></label></div>
+
+   <label class="f">Test of controls result</label>
+<div class="seg" role="radiogroup"><label><input type="radio" name="toc" value="Not tested / not relied on" checked><span>Not tested / not relied on</span></label><label><input type="radio" name="toc" value="Tested - effective" ><span>Tested - effective</span></label><label><input type="radio" name="toc" value="Tested - ineffective" ><span>Tested - ineffective</span></label></div>
+
+   <input name="toc_desc" value="" placeholder="Controls tested - description / WP ref" style="margin-top:8px">
+   <label class="f">Substantive analytics effectiveness</label>
+<div class="seg" role="radiogroup"><label><input type="radio" name="sap" value="None" checked><span>None</span></label><label><input type="radio" name="sap" value="Limited" ><span>Limited</span></label><label><input type="radio" name="sap" value="Effective" ><span>Effective</span></label></div>
+
+   <input name="sap_desc" value="" placeholder="Analytics performed - description / WP ref" style="margin-top:8px">
+   <div class="two"><div><label class="f">Expected misstatement (amount)</label><input type="number" step="any" name="em" value="0"></div><div></div></div>
+   <label class="toggle"><input type="checkbox" name="sig" ><i></i> Significant risk (forces RMM High, no credit for analytics)</label></div>
+
+  <div class="panel rv"><h3><span class="sn">4</span> Key items and method</h3>
+   <div class="two"><div><label class="f">Key item threshold (optional)</label><input type="number" step="any" name="key_thr" value=""><div class="hint">At or above = tested 100%. Blank = tolerable misstatement</div></div>
+   <div><label class="f">Random seed (optional)</label><input type="number" name="seed" value=""><div class="hint">Blank = generated and recorded</div></div></div>
+   <label class="f">Additional key items - Item IDs</label><input name="key_ids" value="" placeholder="INV-0005, INV-0042">
+   <label class="toggle"><input type="checkbox" name="key_neg" checked><i></i> Treat opposite-sign items (e.g. credits) as key items</label>
+   <label class="f">Sampling method</label>
+   <div class="mgrid"><label class="mc"><input type="radio" name="method" value="MUS" checked><b>MUS</b><span>Monetary unit sampling - every rupee/dollar has an equal chance; larger items more likely selected</span></label><label class="mc"><input type="radio" name="method" value="Random" ><b>Random</b><span>Simple random selection of items (seeded, reproducible)</span></label><label class="mc"><input type="radio" name="method" value="Systematic" ><b>Systematic</b><span>Every nth item from a random start (seeded, reproducible)</span></label><label class="mc"><input type="radio" name="method" value="Haphazard" ><b>Haphazard</b><span>Auditor selects items without conscious bias - enter the Item IDs on the Sample tab</span></label></div></div>
+  <button class="btn submit" type="submit">Generate sampling workpaper <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+  <p class="hint" style="text-align:center;margin-top:12px">Default sizing tables are illustrative - replace them on the Parameters tab with your firm's methodology.</p>
+ </form>
+
+ <aside class="side">
+  <div class="panel sidecard rv d1"><h4>Live risk assessment</h4>
+   <div class="gauge"><div class="ringw"><svg width="104" height="104" viewBox="0 0 104 104"><defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6c8cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+    <circle class="bgc" cx="52" cy="52" r="45"/><circle class="fgc" id="m-ring" cx="52" cy="52" r="45" style="stroke-dashoffset:300"/></svg><b id="m-conf">-</b></div>
+    <div class="kv"><div><span>Assessed RMM</span><b id="m-rmm" class="rmm Moderate">-</b></div><div><span>Reliability factor</span><b id="m-rf">-</b></div>
+    <div><span>Expansion factor</span><b id="m-ef">-</b></div><div><span>Analytics credit</span><b id="m-sap">-</b></div><div><span>Method</span><b id="m-method">-</b></div></div></div>
+   <p class="hint" id="m-note" style="margin-top:12px"></p>
+   <p class="hint">Sample size = residual value x factor / (tolerable misstatement - expected misstatement x expansion factor).</p></div>
+  <div class="panel sidecard rv d2"><h4>What you'll get</h4><ul class="ul">
+   <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span><b>Plan</b> - risk, assurance, key items, residual, sample size</span></li>
+   <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span><b>Key Items</b> tested 100% with results columns</span></li>
+   <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span><b>Sample</b> - seeded, reproducible selection</span></li>
+   <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span><b>Results</b> - projection and Stringer bound for MUS</span></li>
+   <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span><b>Parameters</b> - edit to match your methodology</span></li></ul></div>
+ </aside></div></div>
+<script type="application/json" id="tables">{"ef": {"High": 1.6, "Low": 1.3, "Moderate": 1.5}, "rf": {"High": [3.0, 2.7, 2.31], "Low": [1.61, 1.39, 1.21], "Moderate": [2.31, 2.0, 1.61]}, "rmm": {"High": ["High", "Moderate", "High"], "Low": ["Low", "Low", "Moderate"], "Moderate": ["Moderate", "Low", "High"]}, "sap": ["None", "Limited", "Effective"], "toc": ["Not tested / not relied on", "Tested - effective", "Tested - ineffective"]}</script>
+
+<footer><div class="wrap in"><span>&copy; 2026 AuditFlow - audit workpaper tools for professional firms.</span>
+<span>Runs entirely in your browser. Your files never leave your computer.</span></div></footer>
+<div class="ov" id="ov"><div class="mbox" id="ovbox"></div></div>
+<button class="fbbtn" id="fbBtn" type="button" aria-label="Give feedback"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg> Feedback</button>
+<div class="ov" id="fb"><div class="mbox" style="text-align:left;width:min(480px,94vw)">
+ <h3 style="margin:0 0 4px;font-size:22px">How is it going?</h3><p class="hint" style="margin:0 0 6px">Tell us what worked, what broke, or what to build next.</p>
+ <div class="stars" id="stars"><button type="button" data-v="1" aria-label="1 stars">&#9733;</button><button type="button" data-v="2" aria-label="2 stars">&#9733;</button><button type="button" data-v="3" aria-label="3 stars">&#9733;</button><button type="button" data-v="4" aria-label="4 stars">&#9733;</button><button type="button" data-v="5" aria-label="5 stars">&#9733;</button></div>
+ <div class="seg" style="margin-top:10px"><label><input type="radio" name="fbcat" value="Idea" checked><span>Idea</span></label><label><input type="radio" name="fbcat" value="Bug"><span>Bug</span></label><label><input type="radio" name="fbcat" value="Praise"><span>Praise</span></label><label><input type="radio" name="fbcat" value="Question"><span>Question</span></label></div>
+ <label class="f">Your feedback</label><textarea id="fbmsg" rows="4" maxlength="2000" placeholder="What would make this more useful for your firm?"></textarea>
+ <label class="f">Email or name (optional)</label><input id="fbcontact" maxlength="200" placeholder="Only if you want a reply">
+ <div class="err" id="fberr"></div>
+ <div style="display:flex;gap:10px;margin-top:16px"><button class="btn" id="fbsend" type="button" style="flex:1;justify-content:center">Send feedback</button><button class="btn ghost" id="fbclose" type="button">Close</button></div>
+</div></div>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script></body></html>
