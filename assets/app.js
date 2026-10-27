@@ -108,14 +108,21 @@ if(fm){
     });
     return wready;
   }
-  if(LOCAL){const b=fm.querySelector('button.submit');if(b){const d=document.createElement('div');d.id='engine';d.className='hint';d.style.cssText='text-align:center;margin-top:10px';b.after(d)}engine().catch(()=>{});}
+  if(LOCAL){document.querySelectorAll('a[data-pytemplate]').forEach(a=>a.addEventListener('click',async ev=>{
+    ev.preventDefault();const old=a.textContent;a.textContent='Preparing...';
+    try{await engine();const id=++wid;const p=new Promise(res=>{pending[id]=res});worker.postMessage({cmd:'template',id,module:a.dataset.pytemplate,fname:a.dataset.fname});
+      const r=await p;if(r.error)throw new Error(r.error);const u=URL.createObjectURL(new Blob([r.bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+      const d=document.createElement('a');d.href=u;d.download=a.dataset.fname;document.body.appendChild(d);d.click();d.remove();}
+    catch(e){alert('Could not prepare the sample: '+e.message)}finally{a.textContent=old}}));
+    const b=fm.querySelector('button.submit');if(b){const d=document.createElement('div');d.id='engine';d.className='hint';d.style.cssText='text-align:center;margin-top:10px';b.after(d)}engine().catch(()=>{});}
   async function localRun(){
     await engine();
-    const f=fm.querySelector('input[type=file]').files[0],fields={};
+    const inputs=[...fm.querySelectorAll('input[type=file]')],f=inputs[0].files[0],fields={},extras={},xfer=[];
     for(const [k,v] of new FormData(fm).entries()) if(typeof v==='string') fields[k]=v;
+    for(const inp of inputs.slice(1)){const x=inp.files[0];if(x){const eb=await x.arrayBuffer();extras[inp.name]={name:x.name,buf:eb};xfer.push(eb)}}
     const buf=await f.arrayBuffer(),id=++wid;
     const p=new Promise(res=>{pending[id]=res});
-    worker.postMessage({cmd:'run',id,tool:fm.dataset.tool,fields,filename:f.name,buf},[buf]);
+    worker.postMessage({cmd:'run',id,tool:fm.dataset.tool,fields,filename:f.name,buf,extras},[buf,...xfer]);
     return p;
   }
   fm.addEventListener('submit',async ev=>{
