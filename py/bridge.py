@@ -12,6 +12,7 @@ from pathlib import Path
 import fixed_assets as fa
 import lead_schedule as ls
 import sampling_tool as st
+import tb_mapping as tm
 
 
 def _safe(name):
@@ -124,12 +125,46 @@ def fixed_assets(form, filename, data):
         return f"{_safe(P['client'])}_Fixed_Assets_{P['year_end']:%Y%m%d}.xlsx", _read_out(out), summary
 
 
-TOOLS = {"lead-schedule": lead_schedule, "sampling": sampling, "fixed-assets": fixed_assets}
-
-
-def run(tool, form, filename, data):
-    """Entry point used by the browser worker. Returns (name, bytes, summary); raises ValueError for user errors."""
+# ------------------------------------------------------------------ TB mapping
+def tb_mapping(form, filename, data, extras=None):
+    if not filename.lower().endswith((".xlsx", ".xlsm", ".csv")):
+        raise ValueError("Please upload an Excel (.xlsx) or CSV trial balance.")
+    cr_pos = form.get("convention") == "cr_pos"
+    rows, info = tm.read_raw_tb(data, filename, cr_positive=cr_pos)
+    if form.get("drop_zero"):
+        rows = [r for r in rows if abs(r["cy"]) >= 0.5 or abs(r["py"]) >= 0.5]
+        if not rows:
+            raise ValueError("Every account has a zero balance.")
+    prev, pstats = None, None
+    pf = (extras or {}).get("prev")
+    if pf and pf[1]:
+        prev = tm.read_previous(pf[1], pf[0])
+        pstats = (prev[2], prev[3])
+    client = str(form.get("client", "")).strip() or "Client"
     try:
+        ye = _date(form, "year_end") if str(form.get("year_end", "")).strip() else None
+    except ValueError:
+        raise ValueError("Please check the year-end date.")
+    tm.map_accounts(rows, prev)
+    with tempfile.TemporaryDirectory() as d:
+        out = Path(d) / "out.xlsx"
+        res = tm.build(rows, dict(client=client, year_end=ye), str(out), info, pstats)
+        c = res["counts"]
+        summary = [["Accounts read", res["n"]], ["High confidence", c["High"]],
+                   ["To review", res["review"]], ["Unmapped", c["Unmapped"]]]
+        tail = f"_{ye:%Y%m%d}" if ye else ""
+        return f"{_safe(client)}_Mapped_TB{tail}.xlsx", _read_out(out), summary
+
+
+TOOLS = {"lead-schedule": lead_schedule, "sampling": sampling, "fixed-assets": fixed_assets, "tb-mapping": tb_mapping}
+
+
+def run(tool, form, filename, data, extras=None):
+    """Entry point used by the browser worker. Returns (name, bytes, summary); raises ValueError for user errors.
+    extras: optional {field: (filename, bytes)} for tools that take a second file."""
+    try:
+        if tool == "tb-mapping":
+            return TOOLS[tool](form, filename, data, extras)
         return TOOLS[tool](form, filename, data)
     except ValueError:
         raise
