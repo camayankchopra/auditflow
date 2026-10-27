@@ -31,6 +31,16 @@ function cleanError(e) {
 self.onmessage = async (ev) => {
   const d = ev.data;
   if (d.cmd === 'init') { try { await init(); } catch (e) {} return; }
+  if (d.cmd === 'template') {
+    try {
+      await init();
+      py.globals.set('_M', d.module);
+      py.runPython("import importlib; importlib.import_module(_M).make_template('/tmp/_tpl.xlsx')");
+      const bytes = py.FS.readFile('/tmp/_tpl.xlsx');
+      postMessage({ id: d.id, bytes: bytes.buffer }, [bytes.buffer]);
+    } catch (e) { postMessage({ id: d.id, error: cleanError(e) }); }
+    return;
+  }
   if (d.cmd !== 'run') return;
   try {
     await init();
@@ -38,8 +48,15 @@ self.onmessage = async (ev) => {
     py.globals.set('_F', py.toPy(d.fields));
     py.globals.set('_N', d.filename);
     py.globals.set('_B', new Uint8Array(d.buf));
+    const ex = {};
+    for (const [k, v] of Object.entries(d.extras || {})) {
+      py.globals.set('_X_' + k, new Uint8Array(v.buf));
+      ex[k] = v.name;
+    }
+    py.globals.set('_XN', py.toPy(ex));
     py.runPython(`
-_name, _data, _summary = bridge.run(_T, dict(_F), _N, _B.to_py().tobytes())
+_extras = {k: (n, globals()['_X_' + k].to_py().tobytes()) for k, n in dict(_XN).items()}
+_name, _data, _summary = bridge.run(_T, dict(_F), _N, _B.to_py().tobytes(), _extras)
 open('/tmp/_out.xlsx', 'wb').write(_data)
 _summary_json = __import__('json').dumps([list(map(str, x)) for x in _summary])
 `);
