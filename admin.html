@@ -1,0 +1,118 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin dashboard - AuditFlow</title>
+<link rel="stylesheet" href="assets/app.css"></head><body>
+<div class="bg"></div><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><canvas id="net"></canvas>
+<div class="trialbar" style="background:linear-gradient(90deg,#059669,#0ea5e9)">PRIVATE BY DESIGN - everything runs in your browser. Your files are never uploaded or stored.</div>
+<header class="nav"><div class="in"><a class="logo" href="index.html"><svg width="30" height="30" viewBox="0 0 32 32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6c8cff"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M8 17l5 5 11-12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> AuditFlow</a>
+ <nav class="links"><a href="index.html#tools">Tools</a><a href="index.html#why">Why firms choose us</a><a href="index.html#how">How it works</a>
+ <a class="btn sm" href="mailto:ca.mayankchopra@gmail.com?subject=Demo%20request">Request a demo</a></nav></div></header>
+
+<div class="wrap"><div class="phead">
+ <div class="crumb"><a href="index.html">All tools</a> / Admin dashboard</div>
+ <h1 class="rv"><span class="grad">Admin</span> dashboard</h1>
+ <p class="lead rv d1">Who signed in, which tools they used, how often, what it is worth, the time saved they reported, and their feedback. You control every user's credits.</p></div>
+ <div id="adm"><p class="sub">Loading...</p></div></div>
+<script>
+addEventListener('load', async function () {
+  const root = document.getElementById('adm');
+  if (!window.AFB) { root.innerHTML = '<div class="panel"><p class="sub">Sign-in is not switched on for this site yet.</p></div>'; return; }
+  const B = AFB, E = B.esc;
+  await B.ready;
+  if (!B.user()) { location.replace('login.html?next=admin.html'); return; }
+  if (B.user().role !== 'admin') { root.innerHTML = '<div class="panel"><h3 style="margin-top:0">Administrators only</h3><p class="sub">Your account does not have access to this page.</p></div>'; return; }
+  let D = null, tab = 'overview', fUser = '', fTool = '';
+  const dt = s => s ? new Date(s).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'never';
+  const dfull = s => s ? new Date(s).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+  const cur = () => (D.settings.currency || '');
+  const money = x => cur() + Number(x || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const hrs = m => (m / 60).toFixed(1);
+  const rate = () => parseFloat(D.settings.hourly_rate || '0') || 0;
+  const label = t => { const x = D.tools.find(r => r.tool === t); return x ? x.label : t; };
+  const stars = n => n ? '&#9733;'.repeat(n) + '<span style="opacity:.25">' + '&#9733;'.repeat(5 - n) + '</span>' : '-';
+  const toast = (m, bad) => { const e = document.getElementById('toast'); if (e) { e.textContent = m; e.className = bad ? 'err show' : 'afwarn'; e.style.display = 'block'; scrollTo({ top: 0, behavior: 'smooth' }); } };
+  async function load() { try { D = await B.dashboard(); } catch (e) { if (e.signedOut) { location.replace('login.html?next=admin.html'); return false; } root.innerHTML = '<div class="err show" style="display:block">' + E(e.message) + '</div>'; return false; } return true; }
+  async function act(fn, ok) { try { await fn(); if (await load()) { draw(); toast(ok); } } catch (e) { toast(e.message, true); } }
+  function csv(name, rows) {
+    const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + rows.map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  function overview() {
+    const t = D.totals, sv = t.manual_min - t.actual_min, allZero = D.tools.every(x => +x.rate === 0);
+    return `${allZero ? '<div class="afwarn">No rate per run is set yet, so cost shows as zero. Open <b>Settings</b> and enter a rate for each tool.</div>' : ''}
+    <div class="afgrid">
+      <div class="afstat"><b>${t.users}</b><span>Users</span><small>${t.active_7d} signed in during the last 7 days</small></div>
+      <div class="afstat"><b>${t.logins_30d}</b><span>Logins in 30 days</span></div>
+      <div class="afstat"><b>${t.runs}</b><span>Tool runs</span><small>${t.runs_7d} in the last 7 days</small></div>
+      <div class="afstat"><b>${money(t.cost)}</b><span>Cost incurred</span><small>runs x rate per run</small></div>
+      <div class="afstat"><b>${t.credits_used}</b><span>Credits used</span><small>${t.credits_outstanding} still unused</small></div>
+      <div class="afstat"><b>${hrs(sv)} h</b><span>Time saved (reported)</span><small>${t.timed_runs} timed run${t.timed_runs === 1 ? '' : 's'}${rate() ? ' &middot; worth ' + money(sv / 60 * rate()) : ''}</small></div>
+    </div>
+    <div class="panel"><h3 style="margin-top:0">By tool</h3><div class="tscroll"><table class="aftable"><thead><tr><th>Tool</th><th class="num">Runs</th><th class="num">Users</th><th class="num">Rate / run</th><th class="num">Cost</th><th class="num">Avg by hand (min)</th><th class="num">Avg with tool (min)</th><th>Avg rating</th></tr></thead><tbody>
+    ${D.tools.map(x => `<tr><td>${E(x.label)} ${x.active ? '' : '<span class="afpill">off</span>'}</td><td class="num">${x.runs}</td><td class="num">${x.users}</td><td class="num">${money(x.rate)}</td><td class="num">${money(x.cost)}</td><td class="num">${x.avg_manual == null ? '-' : x.avg_manual}</td><td class="num">${x.avg_actual == null ? '-' : x.avg_actual}</td><td>${stars(Math.round(x.avg_rating || 0))}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+  function users() {
+    return `<div class="panel"><h3 style="margin-top:0">Invite a user</h3><p class="sub">Only invited emails can create a password. They sign up on the sign-in page ("First time here").</p>
+      <form id="inv" class="afrow"><div><label class="f">Email</label><input type="email" name="email" required></div><div><label class="f">Name</label><input name="name"></div><div style="flex:0 1 110px"><label class="f">Credits</label><input type="number" name="credits" min="0" value="10"></div><div style="flex:0 0 auto"><button class="btn sm">Invite</button></div></form>
+      ${D.invites.length ? '<h4 style="margin:18px 0 6px">Invited, not signed up yet</h4><div class="tscroll"><table class="aftable"><tbody>' + D.invites.map(i => `<tr><td>${E(i.email)}</td><td>${E(i.name || '')}</td><td class="num">${i.credits} credits</td><td><button class="afsm bad" data-rm="${E(i.email)}">Remove</button></td></tr>`).join('') + '</tbody></table></div>' : ''}</div>
+    <div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3 style="margin:0 0 10px">Users</h3><button class="afsm" id="csvu">Download CSV</button></div><div class="tscroll"><table class="aftable"><thead><tr><th>User</th><th>Status</th><th class="num">Credits</th><th class="num">Logins</th><th>Last login</th><th class="num">Runs</th><th>Tools used</th><th class="num">Cost</th><th class="num">Saved (h)</th><th>Credits</th><th></th></tr></thead><tbody>
+    ${D.users.map(u => `<tr><td class="wr"><b>${E(u.name || '')}</b>${u.role === 'admin' ? ' <span class="afpill">admin</span>' : ''}<br><span class="hint">${E(u.email)}</span></td><td><span class="afpill ${u.status === 'active' ? 'ok' : 'bad'}">${u.status}</span></td><td class="num"><b>${u.credits}</b></td><td class="num">${u.login_count}</td><td>${dt(u.last_login)}</td><td class="num">${u.runs}</td><td class="wr">${Object.keys(u.by_tool || {}).map(t => E(label(t)) + ' <b>' + u.by_tool[t] + '</b>').join(' &middot; ') || '-'}</td><td class="num">${money(u.cost)}</td><td class="num">${hrs(u.manual_min - u.actual_min)}</td>
+      <td><span style="display:inline-flex;gap:6px"><input type="number" value="5" data-cr="${u.id}"><button class="afsm" data-add="${u.id}">Add</button></span></td>
+      <td>${u.role === 'admin' ? '' : `<button class="afsm ${u.status === 'active' ? 'bad' : ''}" data-st="${u.id}" data-to="${u.status === 'active' ? 'disabled' : 'active'}">${u.status === 'active' ? 'Disable' : 'Enable'}</button>`}</td></tr>`).join('')}</tbody></table></div>
+      <p class="hint">Credits: type a number and press Add. Use a negative number to take credits away. A run that fails is refunded automatically.</p></div>`;
+  }
+  function usage() {
+    const emails = [...new Set(D.runs.map(r => r.email))], tools = [...new Set(D.runs.map(r => r.tool))];
+    const rs = D.runs.filter(r => (!fUser || r.email === fUser) && (!fTool || r.tool === fTool));
+    return `<div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-end"><h3 style="margin:0">Recent runs</h3>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><select id="fu" style="width:auto"><option value="">All users</option>${emails.map(e => `<option ${e === fUser ? 'selected' : ''}>${E(e)}</option>`).join('')}</select><select id="ft" style="width:auto"><option value="">All tools</option>${tools.map(t => `<option value="${E(t)}" ${t === fTool ? 'selected' : ''}>${E(label(t))}</option>`).join('')}</select><button class="afsm" id="csvr">Download CSV</button></span></div>
+      <div class="tscroll"><table class="aftable"><thead><tr><th>When</th><th>User</th><th>Tool</th><th>Client</th><th>Result</th><th class="num">Cost</th><th class="num">By hand</th><th class="num">With tool</th><th>Rating</th></tr></thead><tbody>
+      ${rs.map(r => `<tr><td>${dfull(r.started_at)}</td><td>${E(r.name || r.email)}</td><td>${E(label(r.tool))}</td><td>${E(r.client || '-')}</td><td><span class="afpill ${r.status === 'done' ? 'ok' : (r.status === 'failed' ? 'bad' : 'wa')}">${r.status}</span></td><td class="num">${r.status === 'failed' ? '-' : money(r.rate)}</td><td class="num">${r.manual_min == null ? '-' : r.manual_min}</td><td class="num">${r.actual_min == null ? '-' : r.actual_min}</td><td>${stars(r.rating)}</td></tr>`).join('') || '<tr><td colspan="9" class="hint">No runs yet.</td></tr>'}</tbody></table></div></div>
+      <div class="panel"><h3 style="margin-top:0">Recent logins</h3><div class="tscroll"><table class="aftable"><tbody>${D.logins.slice(0, 60).map(l => `<tr><td>${dfull(l.at)}</td><td>${E(l.name || '')}</td><td>${E(l.email)}</td></tr>`).join('') || '<tr><td class="hint">No logins yet.</td></tr>'}</tbody></table></div></div>`;
+  }
+  function feedback() {
+    return `<div class="panel"><h3 style="margin-top:0">Feedback (${D.feedback.length})</h3>${D.feedback.map(f => `<div class="affb"><div class="m"><b>${E(f.name || f.email)}</b> &middot; ${dfull(f.created_at)} &middot; ${E(f.category || '')} &middot; ${E(f.page || '')} &middot; ${stars(f.rating)}</div><p>${E(f.message || '')}</p></div>`).join('') || '<p class="sub">No feedback yet.</p>'}</div>`;
+  }
+  function settings() {
+    return `<div class="panel"><h3 style="margin-top:0">Rate per run and credits per run</h3><p class="sub">The rate is the notional charge-out for one run of the tool. Cost on the dashboard = number of runs x the rate in force on the day of the run.</p>
+      <div class="tscroll"><table class="aftable"><thead><tr><th>Tool</th><th>Rate per run (${E(cur())})</th><th>Credits per run</th><th>Available</th><th></th></tr></thead><tbody>
+      ${D.tools.map(x => `<tr data-tool="${E(x.tool)}"><td>${E(x.label)}</td><td><input type="number" min="0" step="1" value="${x.rate}" data-f="rate"></td><td><input type="number" min="0" step="1" value="${x.credits}" data-f="credits"></td><td><input type="checkbox" data-f="active" ${x.active ? 'checked' : ''}></td><td><button class="afsm" data-save="${E(x.tool)}">Save</button></td></tr>`).join('')}</tbody></table></div></div>
+      <div class="panel"><h3 style="margin-top:0">Currency and staff cost</h3><form id="cfg" class="afrow"><div style="flex:0 1 120px"><label class="f">Currency symbol</label><input name="currency" maxlength="4" value="${E(D.settings.currency || '')}"></div><div><label class="f">Staff cost per hour (to value time saved)</label><input type="number" name="hourly" min="0" step="1" value="${E(D.settings.hourly_rate || '0')}"></div><div style="flex:0 0 auto"><button class="btn sm">Save</button></div></form></div>`;
+  }
+  function draw() {
+    const T = [['overview', 'Overview'], ['users', 'Users and credits'], ['usage', 'Usage'], ['feedback', 'Feedback'], ['settings', 'Settings']];
+    root.innerHTML = '<div id="toast" class="err" style="display:none"></div><div class="aftabs">' + T.map(([k, l]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('') + '<button class="afsm" id="rf" style="margin-left:auto">Refresh</button></div>' +
+      ({ overview, users, usage, feedback, settings }[tab])();
+    root.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; draw(); });
+    document.getElementById('rf').onclick = async () => { if (await load()) draw(); };
+    const $ = s => root.querySelector(s);
+    if ($('#inv')) $('#inv').onsubmit = ev => { ev.preventDefault(); const f = ev.target.elements; act(async () => { const r = await B.addUser(f.email.value, f.name.value, +f.credits.value || 0, 'user'); if (r === 'exists') throw new Error('That person already has an account. Use Add credits in the table.'); }, 'Invited. Ask them to open the sign-in page and choose "First time here".'); };
+    root.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => act(() => B.removeInvite(b.dataset.rm), 'Invite removed.'));
+    root.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { const n = parseInt(root.querySelector('[data-cr="' + b.dataset.add + '"]').value, 10); if (!n) return toast('Enter a number of credits.', true); act(() => B.adjustCredits(b.dataset.add, n, n > 0 ? 'Credits added by administrator' : 'Credits removed by administrator'), 'Credits updated.'); });
+    root.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { if (b.dataset.to === 'disabled' && !confirm('Disable this user? They will not be able to sign in or run tools.')) return; const u = D.users.find(x => x.id === b.dataset.st); act(() => B.setUser(u.id, b.dataset.to, u.role), 'User updated.'); });
+    root.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const tr = b.closest('tr'), g = n => tr.querySelector('[data-f=' + n + ']'); act(() => B.setRate(b.dataset.save, +g('rate').value || 0, parseInt(g('credits').value, 10) || 0, g('active').checked), 'Saved.'); });
+    if ($('#cfg')) $('#cfg').onsubmit = ev => { ev.preventDefault(); const f = ev.target.elements; act(async () => { await B.setSetting('currency', f.currency.value); await B.setSetting('hourly_rate', f.hourly.value || '0'); }, 'Saved.'); };
+    if ($('#fu')) $('#fu').onchange = e => { fUser = e.target.value; draw(); };
+    if ($('#ft')) $('#ft').onchange = e => { fTool = e.target.value; draw(); };
+    if ($('#csvr')) $('#csvr').onclick = () => csv('auditflow_runs.csv', [['When', 'User', 'Email', 'Tool', 'Client', 'Status', 'Rate', 'Minutes by hand', 'Minutes with tool', 'Rating']].concat(D.runs.filter(r => (!fUser || r.email === fUser) && (!fTool || r.tool === fTool)).map(r => [r.started_at, r.name, r.email, label(r.tool), r.client, r.status, r.rate, r.manual_min, r.actual_min, r.rating])));
+    if ($('#csvu')) $('#csvu').onclick = () => csv('auditflow_users.csv', [['Name', 'Email', 'Status', 'Credits', 'Logins', 'Last login', 'Runs', 'Cost', 'Minutes by hand', 'Minutes with tool']].concat(D.users.map(u => [u.name, u.email, u.status, u.credits, u.login_count, u.last_login, u.runs, u.cost, u.manual_min, u.actual_min])));
+  }
+  if (await load()) draw();
+});
+</script>
+
+<footer><div class="wrap in"><span>&copy; 2026 AuditFlow - audit workpaper tools for professional firms.</span>
+<span>Runs entirely in your browser. Your files never leave your computer.</span></div></footer>
+<div class="ov" id="ov"><div class="mbox" id="ovbox"></div></div>
+<button class="fbbtn" id="fbBtn" type="button" aria-label="Give feedback"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg> Feedback</button>
+<div class="ov" id="fb"><div class="mbox" style="text-align:left;width:min(480px,94vw)">
+ <h3 style="margin:0 0 4px;font-size:22px">How is it going?</h3><p class="hint" style="margin:0 0 6px">Tell us what worked, what broke, or what to build next.</p>
+ <div class="stars" id="stars"><button type="button" data-v="1" aria-label="1 stars">&#9733;</button><button type="button" data-v="2" aria-label="2 stars">&#9733;</button><button type="button" data-v="3" aria-label="3 stars">&#9733;</button><button type="button" data-v="4" aria-label="4 stars">&#9733;</button><button type="button" data-v="5" aria-label="5 stars">&#9733;</button></div>
+ <div class="seg" style="margin-top:10px"><label><input type="radio" name="fbcat" value="Idea" checked><span>Idea</span></label><label><input type="radio" name="fbcat" value="Bug"><span>Bug</span></label><label><input type="radio" name="fbcat" value="Praise"><span>Praise</span></label><label><input type="radio" name="fbcat" value="Question"><span>Question</span></label></div>
+ <label class="f">Your feedback</label><textarea id="fbmsg" rows="4" maxlength="2000" placeholder="What would make this more useful for your firm?"></textarea>
+ <label class="f">Email or name (optional)</label><input id="fbcontact" maxlength="200" placeholder="Only if you want a reply">
+ <div class="err" id="fberr"></div>
+ <div style="display:flex;gap:10px;margin-top:16px"><button class="btn" id="fbsend" type="button" style="flex:1;justify-content:center">Send feedback</button><button class="btn ghost" id="fbclose" type="button">Close</button></div>
+</div></div>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script></body></html>

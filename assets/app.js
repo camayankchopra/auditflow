@@ -128,12 +128,15 @@ if(fm){
   fm.addEventListener('submit',async ev=>{
     ev.preventDefault();err.classList.remove('show');
     if(!fm.reportValidity()) return;
+    let run=null;
+    if(window.AFB){try{run=await AFB.beforeRun(fm.dataset.tool,(fm.querySelector('[name=client]')||{}).value)}
+      catch(e){err.textContent=e.message||'Could not start the run.';err.classList.add('show');err.scrollIntoView({behavior:'smooth',block:'center'});return}}
     const done=busy();
     try{
       let blob,nm,sum=[];
       if(LOCAL){
         const [r]=await Promise.all([localRun(),sleep(2300)]);
-        if(r.error){ov.classList.remove('show');err.textContent=r.error;err.classList.add('show');err.scrollIntoView({behavior:'smooth',block:'center'});return}
+        if(r.error){if(window.AFB)AFB.afterRun(run,false,null,r.error);ov.classList.remove('show');err.textContent=r.error;err.classList.add('show');err.scrollIntoView({behavior:'smooth',block:'center'});return}
         blob=new Blob([r.bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});nm=r.name;sum=r.summary||[];
       }else{
       const [r]=await Promise.all([fetch(fm.action,{method:'POST',body:new FormData(fm),headers:{'X-Requested-With':'fetch'}}),sleep(2300)]);
@@ -142,6 +145,7 @@ if(fm){
       blob=await r.blob();const cd=r.headers.get('Content-Disposition')||'';nm=(/filename="?([^";]+)"?/.exec(cd)||[])[1]||'workpaper.xlsx';
       try{sum=JSON.parse(r.headers.get('X-Summary')||'[]')}catch(e){}
       }
+      if(window.AFB)AFB.afterRun(run,true,sum);
       done();await sleep(450);
       const url=URL.createObjectURL(blob);
       box.innerHTML=`<svg class="okic" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><path d="M30 52l14 14 27-30"/></svg>
@@ -150,9 +154,10 @@ if(fm){
         <a class="btn lg" style="width:100%;justify-content:center" href="${url}" download="${nm}" id="dl">Download Excel</a>
         <div style="margin-top:12px;font-size:12.5px;color:var(--mu);line-height:1.5">Tip: open the file in Excel and click <b>Enable Editing</b> - figures calculate on opening. Preview panes and Protected View show blanks or nil until then.</div>
         <div style="margin-top:14px"><a href="#" id="cl" style="color:var(--mu);font-size:13px">Close and edit inputs</a></div>`;
+      if(window.AFB)AFB.timePrompt(run,$('#dl'));
       confetti();$('#cl').onclick=e=>{e.preventDefault();ov.classList.remove('show')};
       const a=document.createElement('a');a.href=url;a.download=nm;document.body.appendChild(a);a.click();a.remove();
-    }catch(e){ov.classList.remove('show');err.textContent='Network error - is the app still running? '+e;err.classList.add('show')}
+    }catch(e){if(window.AFB&&run)AFB.afterRun(run,false,null,String(e));ov.classList.remove('show');err.textContent='Network error - is the app still running? '+e;err.classList.add('show')}
   });
 }
 })();
@@ -166,6 +171,14 @@ if(fm){
   ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('show')});
   $('#fbsend').onclick=async()=>{
     const err=$('#fberr'),send=$('#fbsend'); err.classList.remove('show'); send.disabled=true;
+    if(window.AFB&&AFB.user()){
+      const cat0=(document.querySelector('[name=fbcat]:checked')||{}).value,msg0=$('#fbmsg').value;
+      if(!msg0.trim()&&!rating){err.textContent='Please add a rating or a comment.';err.classList.add('show');send.disabled=false;return}
+      try{await AFB.feedback(location.pathname.split('/').pop()||'index.html',cat0,rating,msg0);
+        ov.querySelector('.mbox').innerHTML='<div style="text-align:center"><svg class="okic" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><path d="M30 52l14 14 27-30"/></svg><h3 style="margin:0 0 6px;font-size:22px">Thank you!</h3><p style="color:var(--mu);margin:0 0 18px">Your feedback has been recorded.</p><button class="btn" onclick="location.reload()">Close</button></div>'}
+      catch(e){err.textContent=e.message||'Could not send feedback.';err.classList.add('show');send.disabled=false}
+      return;
+    }
     if(window.AF&&window.AF.local){
       const cat=(document.querySelector('[name=fbcat]:checked')||{}).value,msg=$('#fbmsg').value,contact=$('#fbcontact').value;
       if(!msg&&!rating){err.textContent='Please add a rating or a comment.';err.classList.add('show');send.disabled=false;return}
