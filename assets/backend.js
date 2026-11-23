@@ -205,7 +205,104 @@
     adjustCredits: (id, delta, reason) => rpc('admin_adjust_credits', { p_user: id, p_delta: delta, p_reason: reason || null }),
     setUser: (id, status, role) => rpc('admin_set_user', { p_user: id, p_status: status, p_role: role }),
     setRate: (tool, rate, credits, active) => rpc('admin_set_rate', { p_tool: tool, p_rate: rate, p_credits: credits, p_active: active }),
-    setSetting: (k, v) => rpc('admin_set_setting', { p_key: k, p_value: String(v) })
+    setSetting: (k, v) => rpc('admin_set_setting', { p_key: k, p_value: String(v) }),
+    publishFeedback: (id, on) => rpc('admin_set_feedback_published', { p_id: id, p_published: !!on }),
+    xlsx, saveBlob
   };
+
+  /* ---------- Excel (.xlsx) writer: no library, no upload. Used by the admin dashboard. ---------- */
+  const CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  function crc32(u8) {
+    let t = crc32.t;
+    if (!t) { t = crc32.t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } }
+    let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = t[(c ^ u8[i]) & 255] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function zipStore(files) {
+    const enc = new TextEncoder(), parts = [], cent = []; let off = 0;
+    for (const f of files) {
+      const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(12, 0x21, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, sz, true); lh.setUint32(22, sz, true); lh.setUint16(26, nm.length, true);
+      parts.push(new Uint8Array(lh.buffer), nm, f.data);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(14, 0x21, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, sz, true); ch.setUint32(24, sz, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+      cent.push(new Uint8Array(ch.buffer), nm);
+      off += 30 + nm.length + sz;
+    }
+    const csz = cent.reduce((a, b) => a + b.length, 0), end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, csz, true); end.setUint32(16, off, true);
+    return new Blob(parts.concat(cent, [new Uint8Array(end.buffer)]), { type: CT });
+  }
+  const xe = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const colName = n => { let s = ''; for (n++; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+  // Cell styles: 0 plain, 1 header, 2 bold, 3 date-time, 4 whole number, 5 title, 6 wrapped text, 7 two decimals
+  const ST = { plain: 0, head: 1, bold: 2, date: 3, int: 4, title: 5, wrap: 6, dec: 7 };
+  const STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<numFmts count="1"><numFmt numFmtId="164" formatCode="dd\\-mmm\\-yyyy\\ hh:mm"/></numFmts>' +
+    '<fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts>' +
+    '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F2A44"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+    '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left"/></xf>' +
+    '<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
+    '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  function sheetXml(sh) {
+    const rows = sh.rows || [], hdr = !!sh.header, widths = sh.widths || [];
+    let maxc = 0, body = '';
+    rows.forEach((row, ri) => {
+      let cells = '';
+      row.forEach((c, ci) => {
+        let v = c, st = null;
+        if (c && typeof c === 'object' && !(c instanceof Date)) { v = c.v; st = c.s; }
+        if (v == null || v === '') return;
+        if (hdr && ri === 0 && st == null) st = ST.head;
+        const ref = colName(ci) + (ri + 1); maxc = Math.max(maxc, ci + 1);
+        if (v instanceof Date) { if (isNaN(v)) return; cells += `<c r="${ref}" s="${ST.date}"><v>${((v.getTime() - v.getTimezoneOffset() * 60000) / 86400000 + 25569).toFixed(6)}</v></c>`; }
+        else if (typeof v === 'number' && isFinite(v)) cells += `<c r="${ref}"${st != null ? ` s="${st}"` : ''}><v>${v}</v></c>`;
+        else cells += `<c r="${ref}"${st != null ? ` s="${st}"` : ''} t="inlineStr"><is><t xml:space="preserve">${xe(v)}</t></is></c>`;
+      });
+      body += `<row r="${ri + 1}"${hdr && ri === 0 ? ' ht="30" customHeight="1"' : ''}>${cells}</row>`;
+    });
+    const pane = hdr ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : '';
+    const cols = widths.length ? '<cols>' + widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>' : '';
+    const af = hdr && rows.length > 1 && maxc ? `<autoFilter ref="A1:${colName(maxc - 1)}${rows.length}"/>` : '';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" showGridLines="' + (sh.grid === false ? 0 : 1) + '">' + pane + '</sheetView></sheetViews><sheetFormatPr defaultRowHeight="14"/>' + cols + '<sheetData>' + body + '</sheetData>' + af + '</worksheet>';
+  }
+  // sheets: [{name, rows: [[cell,...]], header: bool, widths: [..], grid: bool}]  ->  Blob (.xlsx)
+  function xlsx(sheets) {
+    const enc = new TextEncoder(), X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', files = [];
+    const names = sheets.map((s, i) => (String(s.name || 'Sheet' + (i + 1)).replace(/[\[\]:*?\/\\]/g, ' ').slice(0, 31)) || 'Sheet' + (i + 1));
+    const add = (name, text) => files.push({ name, data: enc.encode(text) });
+    add('[Content_Types].xml', X + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>');
+    add('_rels/.rels', X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    add('xl/workbook.xml', X + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' + names.map((n, i) => `<sheet name="${xe(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>');
+    add('xl/_rels/workbook.xml.rels', X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') + `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+    add('xl/styles.xml', STYLES);
+    sheets.forEach((s, i) => add(`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s)));
+    return zipStore(files);
+  }
+  function saveBlob(name, blob) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  /* ---------- published feedback shown on the home page ---------- */
+  async function testimonials() {
+    const how = document.getElementById('how'); if (!how) return;
+    let list; try { list = await http('/rest/v1/rpc/public_testimonials', { method: 'POST', body: {} }); } catch (e) { return; }
+    if (!Array.isArray(list) || !list.length) return;
+    const sec = document.createElement('section'); sec.id = 'voices';
+    sec.innerHTML = '<div class="wrap"><div class="center"><span class="pill">What users say</span><h2 style="margin-top:14px">Feedback from <span class="grad">the team</span></h2></div><div class="feats aftest">' +
+      list.map(t => `<figure class="feat"><div class="aftst">${t.rating ? '&#9733;'.repeat(t.rating) + '<span style="opacity:.25">' + '&#9733;'.repeat(5 - t.rating) + '</span>' : ''}</div><blockquote>${esc(t.message)}</blockquote><figcaption><b>${esc(t.name)}</b>${t.tool ? ' &middot; ' + esc(t.tool) : ''}</figcaption></figure>`).join('') + '</div></div>';
+    const host = how.closest('section') || how; host.parentNode.insertBefore(sec, host.nextSibling);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', testimonials); else testimonials();
   window.AFB = AFB;
 })();

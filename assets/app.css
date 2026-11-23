@@ -254,7 +254,7 @@ html.af-wait form[data-ajax]{visibility:hidden}
 .afbox .tabs button{flex:1;border:1px solid var(--bd);background:var(--card);color:var(--mu);border-radius:12px;padding:10px;font:inherit;font-weight:700;cursor:pointer}
 .afbox .tabs button.on{color:#fff;background:linear-gradient(135deg,var(--ac),var(--ac3));border-color:transparent}
 .aflink{background:none;border:0;color:var(--ac2);cursor:pointer;font:inherit;font-size:13px;padding:0}
-.afgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:18px}
+.afgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(146px,1fr));gap:14px;margin-bottom:18px}
 .afstat{padding:16px 18px;border-radius:16px;background:var(--card);border:1px solid var(--bd)}
 .afstat b{display:block;font-size:26px;line-height:1.2}.afstat span{font-size:12.5px;color:var(--mu)}
 .afstat small{display:block;font-size:11.5px;color:var(--mu);margin-top:2px}
@@ -277,3 +277,10 @@ html.af-wait form[data-ajax]{visibility:hidden}
 .afwarn{padding:12px 16px;border-radius:12px;background:rgba(251,191,36,.1);border:1px solid #fbbf2455;color:#ffe9a8;font-size:13.5px;margin-bottom:16px}
 @media(max-width:700px){.nav .links .afchip a:not(:first-child){display:none}}
 .aftable input[data-cr]{width:62px}
+
+/* feedback publishing + home-page testimonials */
+.affb.pub{border-color:var(--ok,#34d399);box-shadow:0 0 0 1px var(--ok,#34d399) inset}
+.affbrow{display:flex;gap:14px;align-items:flex-start;justify-content:space-between}.affbrow p{flex:1;min-width:0;overflow-wrap:anywhere}.affbrow .afsm{flex:0 0 auto}
+.afsm.pubbtn{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border-color:transparent}
+.aftest{align-items:stretch}.aftest figure{margin:0}.aftest .aftst{color:#fbbf24;letter-spacing:2px;margin-bottom:10px;font-size:15px;min-height:18px}
+.aftest blockquote{margin:0 0 14px;font-size:15px;line-height:1.55;color:var(--tx);overflow-wrap:anywhere}.aftest figcaption{font-size:13px;color:var(--mu)}.aftest figcaption b{color:var(--tx)}
