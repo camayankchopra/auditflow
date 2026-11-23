@@ -37,7 +37,9 @@
   const save = s => { sess = s; try { s ? localStorage.setItem(KEY, JSON.stringify(s)) : localStorage.removeItem(KEY); } catch (e) {} };
 
   async function http(path, opt = {}) {
-    const h = { apikey: C.anonKey, 'Content-Type': 'application/json', Authorization: 'Bearer ' + (opt.token || C.anonKey) };
+    const h = { apikey: C.anonKey, 'Content-Type': 'application/json' };
+    // Legacy anon keys are JWTs and may be sent as Bearer; new sb_publishable_ keys must go in apikey only.
+    if (opt.token) h.Authorization = 'Bearer ' + opt.token; else if (/^eyJ/.test(C.anonKey)) h.Authorization = 'Bearer ' + C.anonKey;
     let r;
     try { r = await fetch(base + path, { method: opt.method || 'GET', headers: h, body: opt.body === undefined ? undefined : JSON.stringify(opt.body) }); }
     catch (e) { const er = new Error('Could not reach the server. Check your internet connection and try again.'); er.network = true; throw er; }
