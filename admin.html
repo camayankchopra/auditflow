@@ -20,7 +20,7 @@ addEventListener('load', async function () {
   await B.ready;
   if (!B.user()) { location.replace('login.html?next=admin.html'); return; }
   if (B.user().role !== 'admin') { root.innerHTML = '<div class="panel"><h3 style="margin-top:0">Administrators only</h3><p class="sub">Your account does not have access to this page.</p></div>'; return; }
-  let D = null, tab = 'overview', fUser = '', fTool = '';
+  let D = null, tab = 'overview', fUser = '', fTool = '', fbTool = '', fbShow = 'all';
   const dt = s => s ? new Date(s).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'never';
   const dfull = s => s ? new Date(s).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
   const cur = () => (D.settings.currency || '');
@@ -29,6 +29,8 @@ addEventListener('load', async function () {
   const rate = () => parseFloat(D.settings.hourly_rate || '0') || 0;
   const label = t => { const x = D.tools.find(r => r.tool === t); return x ? x.label : t; };
   const stars = n => n ? '&#9733;'.repeat(n) + '<span style="opacity:.25">' + '&#9733;'.repeat(5 - n) + '</span>' : '-';
+  const fbKey = f => { const k = String(f.page || '').replace(/\.html$/, ''); return D.tools.some(x => x.tool === k) ? k : '_general'; };
+  const fbStats = () => { const o = {}; D.feedback.forEach(f => { const k = fbKey(f); (o[k] = o[k] || { n: 0, pub: 0 }); o[k].n++; if (f.published) o[k].pub++; }); return o; };
   const toast = (m, bad) => { const e = document.getElementById('toast'); if (e) { e.textContent = m; e.className = bad ? 'err show' : 'afwarn'; e.style.display = 'block'; scrollTo({ top: 0, behavior: 'smooth' }); } };
   async function load() { try { D = await B.dashboard(); } catch (e) { if (e.signedOut) { location.replace('login.html?next=admin.html'); return false; } root.innerHTML = '<div class="err show" style="display:block">' + E(e.message) + '</div>'; return false; } return true; }
   async function act(fn, ok) { try { await fn(); if (await load()) { draw(); toast(ok); } } catch (e) { toast(e.message, true); } }
@@ -47,9 +49,11 @@ addEventListener('load', async function () {
       <div class="afstat"><b>${money(t.cost)}</b><span>Cost incurred</span><small>runs x rate per run</small></div>
       <div class="afstat"><b>${t.credits_used}</b><span>Credits used</span><small>${t.credits_outstanding} still unused</small></div>
       <div class="afstat"><b>${hrs(sv)} h</b><span>Time saved (reported)</span><small>${t.timed_runs} timed run${t.timed_runs === 1 ? '' : 's'}${rate() ? ' &middot; worth ' + money(sv / 60 * rate()) : ''}</small></div>
+      <div class="afstat"><b>${D.feedback.length}</b><span>Feedback received</span><small>${D.feedback.filter(f => f.published).length} published on the home page</small></div>
     </div>
-    <div class="panel"><h3 style="margin-top:0">By tool</h3><div class="tscroll"><table class="aftable"><thead><tr><th>Tool</th><th class="num">Runs</th><th class="num">Users</th><th class="num">Rate / run</th><th class="num">Cost</th><th class="num">Avg by hand (min)</th><th class="num">Avg with tool (min)</th><th>Avg rating</th></tr></thead><tbody>
-    ${D.tools.map(x => `<tr><td>${E(x.label)} ${x.active ? '' : '<span class="afpill">off</span>'}</td><td class="num">${x.runs}</td><td class="num">${x.users}</td><td class="num">${money(x.rate)}</td><td class="num">${money(x.cost)}</td><td class="num">${x.avg_manual == null ? '-' : x.avg_manual}</td><td class="num">${x.avg_actual == null ? '-' : x.avg_actual}</td><td>${stars(Math.round(x.avg_rating || 0))}</td></tr>`).join('')}</tbody></table></div></div>`;
+    <div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><h3 style="margin:0">By tool</h3><button class="afsm" id="xl">Download Excel</button></div><div class="tscroll"><table class="aftable"><thead><tr><th>Tool</th><th class="num">Runs</th><th class="num">Users</th><th class="num">Rate / run</th><th class="num">Cost</th><th class="num">Avg by hand (min)</th><th class="num">Avg with tool (min)</th><th>Avg rating</th><th>Feedback</th></tr></thead><tbody>
+    ${D.tools.map(x => { const fs = fbStats()[x.tool]; return `<tr><td>${E(x.label)} ${x.active ? '' : '<span class="afpill">off</span>'}</td><td class="num">${x.runs}</td><td class="num">${x.users}</td><td class="num">${money(x.rate)}</td><td class="num">${money(x.cost)}</td><td class="num">${x.avg_manual == null ? '-' : x.avg_manual}</td><td class="num">${x.avg_actual == null ? '-' : x.avg_actual}</td><td>${stars(Math.round(x.avg_rating || 0))}</td><td>${fs ? `<a href="#" data-fbt="${E(x.tool)}">${fs.n} comment${fs.n === 1 ? '' : 's'}</a>${fs.pub ? ' <span class="afpill ok">' + fs.pub + ' published</span>' : ''}` : '-'}</td></tr>`; }).join('')}
+    ${(() => { const g = fbStats()._general; return g ? `<tr><td><i>General (not about one tool)</i></td><td colspan="7"></td><td><a href="#" data-fbt="_general">${g.n} comment${g.n === 1 ? '' : 's'}</a>${g.pub ? ' <span class="afpill ok">' + g.pub + ' published</span>' : ''}</td></tr>` : ''; })()}</tbody></table></div><p class="hint">Click a feedback count to read and publish those comments. Download Excel gives you this overview with the users, runs, feedback and logins behind it.</p></div>`;
   }
   function users() {
     return `<div class="panel"><h3 style="margin-top:0">Invite a user</h3><p class="sub">Only invited emails can create a password. They sign up on the sign-in page ("First time here").</p>
@@ -71,7 +75,43 @@ addEventListener('load', async function () {
       <div class="panel"><h3 style="margin-top:0">Recent logins</h3><div class="tscroll"><table class="aftable"><tbody>${D.logins.slice(0, 60).map(l => `<tr><td>${dfull(l.at)}</td><td>${E(l.name || '')}</td><td>${E(l.email)}</td></tr>`).join('') || '<tr><td class="hint">No logins yet.</td></tr>'}</tbody></table></div></div>`;
   }
   function feedback() {
-    return `<div class="panel"><h3 style="margin-top:0">Feedback (${D.feedback.length})</h3>${D.feedback.map(f => `<div class="affb"><div class="m"><b>${E(f.name || f.email)}</b> &middot; ${dfull(f.created_at)} &middot; ${E(f.category || '')} &middot; ${E(f.page || '')} &middot; ${stars(f.rating)}</div><p>${E(f.message || '')}</p></div>`).join('') || '<p class="sub">No feedback yet.</p>'}</div>`;
+    const st = fbStats(), tools = D.tools.filter(x => st[x.tool]).map(x => [x.tool, x.label]).concat(st._general ? [['_general', 'General']] : []);
+    const list = D.feedback.filter(f => (!fbTool || fbKey(f) === fbTool) && (fbShow === 'all' || (fbShow === 'published') === !!f.published));
+    const pubN = D.feedback.filter(f => f.published).length;
+    return `<div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-end"><h3 style="margin:0">Feedback (${list.length}${list.length !== D.feedback.length ? ' of ' + D.feedback.length : ''})</h3>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><select id="fbt" style="width:auto"><option value="">All tools</option>${tools.map(([k, l]) => `<option value="${E(k)}" ${k === fbTool ? 'selected' : ''}>${E(l)}</option>`).join('')}</select>
+      <select id="fbs" style="width:auto"><option value="all" ${fbShow === 'all' ? 'selected' : ''}>All</option><option value="published" ${fbShow === 'published' ? 'selected' : ''}>Published (${pubN})</option><option value="unpublished" ${fbShow === 'unpublished' ? 'selected' : ''}>Not published</option></select></span></div>
+      <p class="hint" style="margin:8px 0 12px">Press <b>Publish</b> on good feedback to show it on your home page as a testimonial: first name and last initial, the comment, the star rating and the tool. Email addresses are never shown. Read each comment first and make sure it names no client. You can unpublish at any time.</p>
+      ${list.map(f => `<div class="affb ${f.published ? 'pub' : ''}"><div class="m"><b>${E(f.name || f.email)}</b> &middot; ${dfull(f.created_at)} &middot; ${E(f.category || '')} &middot; ${E(f.page || '')} &middot; ${stars(f.rating)} ${f.published ? '<span class="afpill ok">Published</span>' : ''}</div>
+        <div class="affbrow"><p>${E(f.message || '')}</p><button class="afsm ${f.published ? 'bad' : 'pubbtn'}" data-pub="${f.id}" data-on="${f.published ? 0 : 1}">${f.published ? 'Unpublish' : 'Publish'}</button></div></div>`).join('') || '<p class="sub">No feedback to show.</p>'}</div>`;
+  }
+  function exportExcel() {
+    const t = D.totals, sv = t.manual_min - t.actual_min, st = fbStats(), N = x => x == null || x === '' ? null : Number(x), d = s => s ? new Date(s) : null;
+    const now = new Date(), nm = 'AuditFlow_overview_' + now.toISOString().slice(0, 10) + '.xlsx';
+    const summary = [[{ v: 'AuditFlow usage overview', s: 5 }], ['Generated', now], ['Currency', D.settings.currency || ''], [], [{ v: 'Metric', s: 1 }, { v: 'Value', s: 1 }, { v: 'Note', s: 1 }],
+      ['Users (excluding administrators)', N(t.users)], ['Users signed in during the last 7 days', N(t.active_7d)], ['Logins in the last 30 days', N(t.logins_30d)],
+      ['Tool runs (successful)', N(t.runs), 'Failed runs are refunded and not counted'], ['Tool runs in the last 7 days', N(t.runs_7d)],
+      ['Cost incurred', N(t.cost), 'Runs x rate per run in force on the day of the run'], ['Credits used', N(t.credits_used)], ['Credits still unused', N(t.credits_outstanding)],
+      ['Timed runs (users reported their time)', N(t.timed_runs)], ['Time by hand, reported (hours)', +hrs(t.manual_min)], ['Time with the tool, reported (hours)', +hrs(t.actual_min)], ['Time saved (hours)', +hrs(sv)],
+      ['Staff cost per hour', N(D.settings.hourly_rate), 'Set in Settings'], ['Value of time saved', rate() ? Math.round(sv / 60 * rate()) : null, 'Time saved x staff cost per hour'],
+      ['Feedback received', D.feedback.length], ['Feedback published', D.feedback.filter(f => f.published).length]];
+    const byTool = [['Tool', 'Available', 'Runs', 'Users', 'Rate per run', 'Credits per run', 'Cost', 'Avg minutes by hand', 'Avg minutes with tool', 'Avg rating', 'Feedback comments', 'Feedback published']]
+      .concat(D.tools.map(x => { const f = st[x.tool] || { n: 0, pub: 0 }; return [x.label, x.active ? 'Yes' : 'No', N(x.runs), N(x.users), N(x.rate), N(x.credits), N(x.cost), N(x.avg_manual), N(x.avg_actual), N(x.avg_rating), f.n, f.pub]; }))
+      .concat(st._general ? [['General (not about one tool)', '', '', '', '', '', '', '', '', '', st._general.n, st._general.pub]] : []);
+    const users = [['Name', 'Email', 'Role', 'Status', 'Credits left', 'Logins', 'Last login', 'Runs', 'Tools used', 'Cost', 'Minutes by hand', 'Minutes with tool', 'Hours saved']]
+      .concat(D.users.map(u => [u.name || '', u.email, u.role, u.status, N(u.credits), N(u.login_count), d(u.last_login), N(u.runs), Object.keys(u.by_tool || {}).map(k => label(k) + ' x' + u.by_tool[k]).join(', '), N(u.cost), N(u.manual_min), N(u.actual_min), +hrs(u.manual_min - u.actual_min)]));
+    const runs = [['When', 'User', 'Email', 'Tool', 'Client', 'Status', 'Rate', 'Minutes by hand', 'Minutes with tool', 'Rating']]
+      .concat(D.runs.map(r => [d(r.started_at), r.name || '', r.email, label(r.tool), r.client || '', r.status, r.status === 'failed' ? null : N(r.rate), N(r.manual_min), N(r.actual_min), N(r.rating)]));
+    const fb = [['When', 'User', 'Email', 'Tool / page', 'Category', 'Rating', 'Comment', 'Published']]
+      .concat(D.feedback.map(f => [d(f.created_at), f.name || '', f.email, f.page || '', f.category || '', N(f.rating), { v: f.message || '', s: 6 }, f.published ? 'Yes' : 'No']));
+    const logins = [['When', 'Name', 'Email']].concat(D.logins.map(l => [d(l.at), l.name || '', l.email]));
+    B.saveBlob(nm, B.xlsx([
+      { name: 'Summary', rows: summary, widths: [44, 18, 52], grid: false },
+      { name: 'By tool', rows: byTool, header: true, widths: [30, 11, 8, 8, 13, 14, 12, 18, 20, 11, 17, 18] },
+      { name: 'Users', rows: users, header: true, widths: [22, 30, 9, 10, 12, 9, 20, 7, 40, 10, 15, 17, 12] },
+      { name: 'Runs', rows: runs, header: true, widths: [20, 22, 30, 20, 22, 10, 9, 15, 17, 8] },
+      { name: 'Feedback', rows: fb, header: true, widths: [20, 22, 30, 22, 12, 8, 70, 11] },
+      { name: 'Logins', rows: logins, header: true, widths: [20, 22, 30] }]));
   }
   function settings() {
     return `<div class="panel"><h3 style="margin-top:0">Rate per run and credits per run</h3><p class="sub">The rate is the notional charge-out for one run of the tool. Cost on the dashboard = number of runs x the rate in force on the day of the run.</p>
@@ -92,6 +132,11 @@ addEventListener('load', async function () {
     root.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { if (b.dataset.to === 'disabled' && !confirm('Disable this user? They will not be able to sign in or run tools.')) return; const u = D.users.find(x => x.id === b.dataset.st); act(() => B.setUser(u.id, b.dataset.to, u.role), 'User updated.'); });
     root.querySelectorAll('[data-save]').forEach(b => b.onclick = () => { const tr = b.closest('tr'), g = n => tr.querySelector('[data-f=' + n + ']'); act(() => B.setRate(b.dataset.save, +g('rate').value || 0, parseInt(g('credits').value, 10) || 0, g('active').checked), 'Saved.'); });
     if ($('#cfg')) $('#cfg').onsubmit = ev => { ev.preventDefault(); const f = ev.target.elements; act(async () => { await B.setSetting('currency', f.currency.value); await B.setSetting('hourly_rate', f.hourly.value || '0'); }, 'Saved.'); };
+    root.querySelectorAll('[data-fbt]').forEach(a => a.onclick = e => { e.preventDefault(); fbTool = a.dataset.fbt; fbShow = 'all'; tab = 'feedback'; draw(); scrollTo({ top: 0 }); });
+    if ($('#fbt')) $('#fbt').onchange = e => { fbTool = e.target.value; draw(); };
+    if ($('#fbs')) $('#fbs').onchange = e => { fbShow = e.target.value; draw(); };
+    root.querySelectorAll('[data-pub]').forEach(b => b.onclick = () => { const on = b.dataset.on === '1'; act(() => B.publishFeedback(+b.dataset.pub, on), on ? 'Published. It now shows on the home page.' : 'Unpublished. It no longer shows on the home page.'); });
+    if ($('#xl')) $('#xl').onclick = () => { try { exportExcel(); } catch (e) { toast('Could not create the Excel file: ' + e.message, true); } };
     if ($('#fu')) $('#fu').onchange = e => { fUser = e.target.value; draw(); };
     if ($('#ft')) $('#ft').onchange = e => { fTool = e.target.value; draw(); };
     if ($('#csvr')) $('#csvr').onclick = () => csv('auditflow_runs.csv', [['When', 'User', 'Email', 'Tool', 'Client', 'Status', 'Rate', 'Minutes by hand', 'Minutes with tool', 'Rating']].concat(D.runs.filter(r => (!fUser || r.email === fUser) && (!fTool || r.tool === fTool)).map(r => [r.started_at, r.name, r.email, label(r.tool), r.client, r.status, r.rate, r.manual_min, r.actual_min, r.rating])));
